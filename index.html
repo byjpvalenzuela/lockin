@@ -10,9 +10,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: black; -webkit-tap-highlight-color: transparent; color: white; }
+        body { font-family: 'Inter', sans-serif; background-color: black; -webkit-tap-highlight-color: transparent; color: white; margin: 0; padding: 0; }
         ::-webkit-scrollbar { display: none; }
-        .stat-bar { transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stat-bar { transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .sticky-header { position: sticky; top: 0; z-index: 100; background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(10px); }
+        .ios-fix { padding-bottom: env(safe-area-inset-bottom); }
+        textarea:focus { outline: none; border-color: #3b82f6; }
     </style>
 </head>
 <body>
@@ -31,7 +34,10 @@
             Sun: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>,
             Moon: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
             Coffee: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/></svg>,
-            Droplets: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+            Droplets: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>,
+            Book: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
+            Save: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+            ChevronDown: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         };
 
         const App = () => {
@@ -39,12 +45,22 @@
             const [taskMode, setTaskMode] = useState(() => localStorage.getItem('jp_taskMode') || 'desired');
             const [checkedTasks, setCheckedTasks] = useState(() => {
                 const saved = localStorage.getItem('jp_checkedTasks');
+                const lastDate = localStorage.getItem('jp_last_reset_date');
+                const today = new Date().toLocaleDateString();
+                if (lastDate !== today) {
+                    localStorage.setItem('jp_last_reset_date', today);
+                    return {};
+                }
                 return saved ? JSON.parse(saved) : {};
             });
-            const [weeklyStats, setWeeklyStats] = useState(() => {
-                const saved = localStorage.getItem('jp_stats_v3');
-                return saved ? JSON.parse(saved) : [0, 0, 0, 0, 0, 0, 0];
+
+            // DIARIO STATE
+            const [currentNote, setCurrentNote] = useState('');
+            const [diaryEntries, setDiaryEntries] = useState(() => {
+                const saved = localStorage.getItem('jp_diary_entries');
+                return saved ? JSON.parse(saved) : [];
             });
+            const [expandedEntry, setExpandedEntry] = useState(null);
 
             const [quoteIndex, setQuoteIndex] = useState(0);
             const [consequenceIndex, setConsequenceIndex] = useState(0);
@@ -58,8 +74,8 @@
                 { text: "La disciplina es el puente entre quien eres hoy y quien quieres ser el 7 de agosto.", author: "JP" },
                 { text: "Cada pomodoro es un ladrillo en el edificio de tu libertad financiera.", author: "JP" },
                 { text: "El Juan Pablo de 260 lbs se construye en los días que no tienes ganas.", author: "JP" },
-                { text: "Si no trabajas por tus sueños, alguien te contratará para los suyos.", author: "Steve Jobs" },
-                { text: "Tus miedos son solo mentiras que te cuentas para no crecer.", author: "JP" }
+                { text: "Tus miedos son solo mentiras que te cuentas para no crecer.", author: "JP" },
+                { text: "No te detengas cuando estés cansado, detente cuando hayas terminado.", author: "David Goggins" }
             ];
 
             const consequences = [
@@ -102,22 +118,12 @@
                 ]
             };
 
-            // ACTUALIZACIÓN DINÁMICA DEL GRÁFICO
             useEffect(() => {
-                const dayIndex = (new Date().getDay() + 6) % 7; 
-                const activeTasks = tasks[taskMode];
-                const checkedCount = activeTasks.filter(t => checkedTasks[t.id]).length;
-                const percentage = (checkedCount / activeTasks.length) * 100;
-                
-                const newStats = [...weeklyStats];
-                newStats[dayIndex] = percentage;
-                setWeeklyStats(newStats);
-                localStorage.setItem('jp_stats_v3', JSON.stringify(newStats));
-                
                 localStorage.setItem('jp_view', view);
                 localStorage.setItem('jp_taskMode', taskMode);
                 localStorage.setItem('jp_checkedTasks', JSON.stringify(checkedTasks));
-            }, [checkedTasks, taskMode, view]);
+                localStorage.setItem('jp_diary_entries', JSON.stringify(diaryEntries));
+            }, [checkedTasks, taskMode, view, diaryEntries]);
 
             useEffect(() => {
                 const calculateTime = () => {
@@ -142,11 +148,22 @@
                 return () => clearInterval(interval);
             }, []);
 
+            const saveDiaryEntry = () => {
+                if (!currentNote.trim()) return;
+                const newEntry = {
+                    id: Date.now(),
+                    date: new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
+                    content: currentNote
+                };
+                setDiaryEntries([newEntry, ...diaryEntries]);
+                setCurrentNote('');
+            };
+
             return (
-                <div className="max-w-md mx-auto min-h-screen pb-10 bg-black text-white px-4">
+                <div className="max-w-md mx-auto min-h-screen bg-black text-white ios-fix">
                     {/* Header */}
-                    <header className="sticky top-0 z-50 bg-black/95 backdrop-blur py-6 border-b border-zinc-800">
-                        <div className="flex justify-between items-end mb-3">
+                    <header className="sticky-header py-6 px-4 border-b border-zinc-800 shadow-2xl">
+                        <div className="flex justify-between items-end mb-4">
                             <div>
                                 <h1 className="text-2xl font-black text-blue-500 italic uppercase tracking-tighter">LOCK-IN 2026</h1>
                                 <p className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase">The JPD Agency</p>
@@ -161,20 +178,20 @@
                         </div>
                     </header>
 
-                    <main className="mt-8 space-y-8">
-                        {/* Objectives */}
+                    <main className="mt-6 px-4 pb-12 space-y-8">
+                        {/* 1. Objetivos */}
                         <section className="bg-zinc-950 rounded-[2.5rem] p-6 border border-zinc-800 shadow-2xl">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-xl font-black uppercase italic flex items-center gap-2 tracking-tighter text-white">
                                     <Icons.Target /> Objetivos
                                 </h2>
-                                <button onClick={() => setTaskMode(taskMode === 'desired' ? 'minimal' : 'desired')} className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${taskMode === 'desired' ? 'bg-blue-600' : 'bg-red-600 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]'}`}>
+                                <button onClick={() => setTaskMode(taskMode === 'desired' ? 'minimal' : 'desired')} className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${taskMode === 'desired' ? 'bg-blue-600 shadow-lg' : 'bg-red-600 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]'}`}>
                                     {taskMode === 'desired' ? 'Deseada' : 'Mínimo'}
                                 </button>
                             </div>
                             <div className="space-y-3">
                                 {tasks[taskMode].map(t => (
-                                    <div key={t.id} onClick={() => setCheckedTasks(prev => ({...prev, [t.id]: !prev[t.id]}))} className={`flex items-center gap-4 p-5 rounded-[1.8rem] border-2 transition-all active:scale-[0.97] ${checkedTasks[t.id] ? 'bg-blue-900/20 border-blue-500/40' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
+                                    <div key={t.id} onClick={() => setCheckedTasks(prev => ({...prev, [t.id]: !prev[t.id]}))} className={`flex items-center gap-4 p-5 rounded-[1.8rem] border-2 transition-all active:scale-[0.97] ${checkedTasks[t.id] ? 'bg-blue-900/20 border-blue-500/40 opacity-70' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
                                         <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all ${checkedTasks[t.id] ? 'bg-blue-600 border-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]' : 'border-zinc-700 bg-black'}`}>
                                             {checkedTasks[t.id] && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
                                         </div>
@@ -185,29 +202,9 @@
                             </div>
                         </section>
 
-                        {/* Disciplina Semanal - Corregido Escalado */}
-                        <section className="bg-zinc-950 rounded-[2.5rem] p-6 border border-zinc-800 shadow-xl">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xs font-black uppercase text-zinc-500 tracking-[0.2em]">Desempeño Semanal</h2>
-                                <span className="text-[10px] font-bold text-blue-500 uppercase italic">Lock-In Stats</span>
-                            </div>
-                            <div className="flex items-end justify-between h-24 px-1 gap-3">
-                                {weeklyStats.map((val, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
-                                        <div className="relative w-full flex justify-center items-end h-full">
-                                            <div className="w-1.5 bg-zinc-900 rounded-full absolute h-full"></div>
-                                            <div className="w-1.5 bg-gradient-to-t from-blue-700 to-blue-400 rounded-full stat-bar relative z-10" style={{ height: `${val > 0 ? val : 5}%`, opacity: val > 0 ? 1 : 0.2 }}>
-                                            </div>
-                                        </div>
-                                        <span className={`text-[10px] font-black uppercase ${i === (new Date().getDay() + 6) % 7 ? 'text-blue-500' : 'text-zinc-600'}`}>{['L','M','M','J','V','S','D'][i]}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
-                        {/* Agenda */}
+                        {/* 2. Agenda */}
                         <section className="space-y-4">
-                            <div className="flex gap-2 p-1 bg-zinc-900 rounded-2xl w-fit border border-zinc-800">
+                            <div className="flex gap-2 p-1 bg-zinc-900 rounded-2xl w-fit border border-zinc-800 ml-1">
                                 <button onClick={() => setView('weekday')} className={`px-6 py-2 rounded-xl font-black text-[10px] uppercase transition-all ${view === 'weekday' ? 'bg-blue-600 shadow-lg' : 'text-zinc-500'}`}>Mar - Sáb</button>
                                 <button onClick={() => setView('growthDays')} className={`px-6 py-2 rounded-xl font-black text-[10px] uppercase transition-all ${view === 'growthDays' ? 'bg-blue-600 shadow-lg' : 'text-zinc-500'}`}>Dom - Lun</button>
                             </div>
@@ -228,12 +225,32 @@
                             </div>
                         </section>
 
-                        {/* Fear & Mindset */}
+                        {/* 3. Diario Input */}
+                        <section className="bg-zinc-950 rounded-[2.5rem] p-6 border border-zinc-800 shadow-2xl space-y-4">
+                            <h2 className="text-xl font-black uppercase italic flex items-center gap-2 tracking-tighter text-white">
+                                <Icons.Book /> Diario de Hoy
+                            </h2>
+                            <textarea 
+                                value={currentNote}
+                                onChange={(e) => setCurrentNote(e.target.value)}
+                                placeholder="¿Cómo te sientes hoy, Juan Pablo?"
+                                className="w-full bg-zinc-900 rounded-2xl p-4 text-sm text-zinc-100 min-h-[120px] border border-zinc-800 resize-none transition-all"
+                            />
+                            <button 
+                                onClick={saveDiaryEntry}
+                                className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-900/20"
+                            >
+                                <Icons.Save /> Guardar en mi Diario
+                            </button>
+                        </section>
+
+                        {/* 4. Miedos */}
                         <section className="bg-red-950/20 border-2 border-red-900/40 rounded-[2.5rem] p-8 min-h-[140px] flex flex-col justify-center shadow-[0_0_20px_rgba(239,68,68,0.1)]">
                             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-red-500 mb-3 italic">Costo del Fracaso</p>
                             <p className={`text-lg font-bold text-red-100 italic transition-opacity duration-500 leading-snug ${fade ? 'opacity-100' : 'opacity-0'}`}>"{consequences[consequenceIndex]}"</p>
                         </section>
 
+                        {/* 5. Mindset */}
                         <section className="bg-gradient-to-br from-blue-700 via-indigo-900 to-black rounded-[2.5rem] p-10 min-h-[220px] flex flex-col justify-center relative overflow-hidden shadow-2xl">
                             <div className={`relative z-10 transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>
                                 <p className="text-[11px] font-black uppercase tracking-widest text-blue-300 mb-4 italic">#Mindset Lock-In</p>
@@ -241,6 +258,36 @@
                                 <p className="text-[10px] text-blue-400 font-bold mt-4 uppercase tracking-[0.2em]">— {quotes[quoteIndex].author}</p>
                             </div>
                             <div className="absolute -bottom-8 -right-8 text-white/5 font-black text-9xl italic select-none">#JPD</div>
+                        </section>
+
+                        {/* 6. Historial del Diario */}
+                        <section className="space-y-4">
+                            <h2 className="text-sm font-black uppercase text-zinc-500 tracking-[0.2em] px-4">Diario de Juan Pablo</h2>
+                            <div className="space-y-3">
+                                {diaryEntries.length === 0 ? (
+                                    <div className="p-8 text-center text-zinc-600 italic text-sm">Aún no hay entradas en tu historia.</div>
+                                ) : (
+                                    diaryEntries.map(entry => (
+                                        <div key={entry.id} className="bg-zinc-950 border border-zinc-800 rounded-[1.5rem] overflow-hidden transition-all shadow-lg">
+                                            <div 
+                                                onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
+                                                className="p-5 flex justify-between items-center active:bg-zinc-900"
+                                            >
+                                                <span className="text-xs font-black uppercase text-blue-500 tracking-tighter">{entry.date}</span>
+                                                <div className={`transition-transform duration-300 ${expandedEntry === entry.id ? 'rotate-180' : ''}`}>
+                                                    <Icons.ChevronDown />
+                                                </div>
+                                            </div>
+                                            {expandedEntry === entry.id && (
+                                                <div className="px-5 pb-5 pt-0">
+                                                    <div className="h-px bg-zinc-800 mb-4 w-full" />
+                                                    <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{entry.content}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </section>
                     </main>
                 </div>
