@@ -16,14 +16,25 @@
             --glass-border: rgba(0, 209, 91, 0.15);
         }
 
+        /* Fix para fondo infinito en móvil */
         body { 
             font-family: 'Inter', sans-serif; 
-            background: radial-gradient(circle at top right, #002e14 0%, #000000 85%);
-            background-attachment: fixed;
+            background-color: #000000;
             color: white; 
             margin: 0; 
             padding: 0; 
             overflow-x: hidden;
+            min-h-screen: 100vh;
+        }
+
+        .infinite-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, #002e14 0%, #000000 85%);
+            z-index: -1;
         }
 
         ::-webkit-scrollbar { display: none; }
@@ -37,6 +48,7 @@
             margin: 0 16px;
             background: rgba(10, 10, 10, 0.9); 
             backdrop-filter: blur(25px); 
+            -webkit-backdrop-filter: blur(25px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -45,6 +57,7 @@
         .glass-panel {
             background: var(--glass-bg);
             backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border: 1px solid var(--glass-border);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
         }
@@ -58,6 +71,7 @@
             z-index: 1000;
             background: rgba(15, 15, 15, 0.9);
             backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 24px;
             padding: 6px;
@@ -141,6 +155,7 @@
     </style>
 </head>
 <body>
+    <div class="infinite-bg"></div>
     <div id="root"></div>
 
     <script type="text/babel">
@@ -199,13 +214,16 @@
             const [psyIndex, setPsyIndex] = useState(0);
             const [fade, setFade] = useState(true);
 
-            // --- LÓGICA DE TIEMPO PERSONALIZADA ---
+            // --- LÓGICA DE TIEMPO (SUMA DE DÍAS TOTALES ENTRE FECHAS) ---
             const timeMetrics = useMemo(() => {
                 const start = new Date(lockinStart).getTime();
                 const end = new Date(lockinEnd).getTime();
+                
+                // Días totales en el periodo definido por el usuario
                 const totalDiff = end - start;
                 const totalDays = Math.max(0, Math.ceil(totalDiff / (1000 * 60 * 60 * 24)));
                 
+                // Progreso (Hoy vs Inicio)
                 const now = new Date().getTime();
                 const elapsedSinceStart = now - start;
                 const percentage = Math.min(Math.max((elapsedSinceStart / totalDiff) * 100, 0), 100).toFixed(1);
@@ -214,7 +232,19 @@
             }, [lockinStart, lockinEnd]);
 
             useEffect(() => {
-                const data = { jpd_start_date: lockinStart, jpd_end_date: lockinEnd, jpd_w_init: wInit, jpd_w_actual: wActual, jpd_c_init: cInit, jpd_c_actual: cActual, jpd_tasks: JSON.stringify(tasks), jpd_schedules: JSON.stringify(schedules), jpd_checkedTasks: JSON.stringify(checkedTasks), jpd_diary_entries: JSON.stringify(diaryEntries), jpd_psy_items: JSON.stringify(psyItems) };
+                const data = { 
+                    jpd_start_date: lockinStart, 
+                    jpd_end_date: lockinEnd, 
+                    jpd_w_init: wInit, 
+                    jpd_w_actual: wActual, 
+                    jpd_c_init: cInit, 
+                    jpd_c_actual: cActual, 
+                    jpd_tasks: JSON.stringify(tasks), 
+                    jpd_schedules: JSON.stringify(schedules), 
+                    jpd_checkedTasks: JSON.stringify(checkedTasks), 
+                    jpd_diary_entries: JSON.stringify(diaryEntries), 
+                    jpd_psy_items: JSON.stringify(psyItems) 
+                };
                 Object.entries(data).forEach(([k,v]) => localStorage.setItem(k, v));
             }, [lockinStart, lockinEnd, wInit, wActual, cInit, cActual, tasks, schedules, checkedTasks, diaryEntries, psyItems]);
 
@@ -296,7 +326,7 @@
 
                                 {/* Objetivos */}
                                 <section className="glass-panel rounded-[2rem] p-7">
-                                    <div className="flex justify-between items-center mb-6">
+                                    <div className="flex justify-between items-center mb-6 px-1">
                                         <h2 className="text-lg font-black uppercase italic text-white tracking-tight">Objetivos</h2>
                                         <div className="flex gap-2">
                                             <button onClick={() => setTaskMode(taskMode === 'desired' ? 'minimal' : 'desired')} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all ${taskMode === 'desired' ? 'bg-[#00d15b] text-black shadow-lg' : 'bg-red-600'}`}>
@@ -338,8 +368,7 @@
                                         </button>
                                     </div>
 
-                                    {/* Barra de días compacta */}
-                                    <div className="day-bar">
+                                    <div className="day-bar shadow-xl">
                                         {dayKeys.map((day, idx) => (
                                             <div 
                                                 key={day} 
@@ -364,8 +393,8 @@
                                                                 <span className="text-zinc-600">:</span>
                                                                 <input type="number" min="0" max="59" value={item.time.split(':')[1].split(' ')[0]} onChange={e => updateTimeComp(item.id, 'm', e.target.value)} className="w-10 bg-transparent text-center text-xs font-black" />
                                                                 <select value={item.time.split(' ')[1]} onChange={e => updateTimeComp(item.id, 'p', e.target.value)} className="bg-transparent text-[8px] font-black uppercase p-1">
-                                                                    <option className="bg-black">AM</option>
-                                                                    <option className="bg-black">PM</option>
+                                                                    <option className="bg-black text-white">AM</option>
+                                                                    <option className="bg-black text-white">PM</option>
                                                                 </select>
                                                             </div>
                                                             <button onClick={() => setSchedules({...schedules, [selectedDay]: schedules[selectedDay].filter(s => s.id !== item.id)})} className="ml-auto p-2 bg-red-950/20 rounded-lg"><Icons.Trash /></button>
@@ -387,7 +416,7 @@
                                 </section>
 
                                 {/* Diario Compacto */}
-                                <section className="glass-panel rounded-[2rem] p-5 space-y-4">
+                                <section className="glass-panel rounded-[2rem] p-5 space-y-4 animate-fade">
                                     <div className="flex justify-between items-center px-1">
                                         <div className="flex items-center gap-2 text-zinc-500 font-black text-[9px] uppercase tracking-widest"><Icons.Book /> Diario</div>
                                         <button onClick={() => { if(currentNote) setDiaryEntries([{id:Date.now(), date:new Date().toLocaleDateString('es-ES',{day:'numeric', month:'short'}), content:currentNote}, ...diaryEntries]); setCurrentNote(''); }} className="px-4 py-1.5 bg-[#00d15b] text-black rounded-full font-black text-[9px] uppercase">Guardar</button>
@@ -395,12 +424,16 @@
                                     <textarea value={currentNote} onChange={(e) => setCurrentNote(e.target.value)} placeholder="Reflexión rápida..." className="w-full bg-black/40 rounded-xl p-4 text-xs text-zinc-300 min-h-[60px] border border-white/5 resize-none shadow-inner" />
                                     <div className="space-y-3 mt-4 max-h-[250px] overflow-y-auto">
                                         {diaryEntries.map(entry => (
-                                            <div key={entry.id} className="bg-black/20 p-4 rounded-xl border border-white/5 group">
+                                            <div key={entry.id} className="bg-black/20 p-4 rounded-xl border border-white/5 group animate-smooth">
                                                 <div className="flex justify-between mb-2">
-                                                    <span className="text-[8px] font-black text-[#00d15b] uppercase">{entry.date}</span>
+                                                    <span className="text-[8px] font-black text-[#00d15b] uppercase tracking-widest">{entry.date}</span>
                                                     <button onClick={() => setDiaryEntries(diaryEntries.filter(e => e.id !== entry.id))}><Icons.Trash /></button>
                                                 </div>
-                                                <textarea value={entry.content} onChange={(e) => setDiaryEntries(diaryEntries.map(ent => ent.id === entry.id ? {...ent, content: e.target.value} : ent))} className="w-full bg-transparent border-none text-[12px] text-zinc-300 italic resize-none h-auto outline-none" />
+                                                <textarea 
+                                                    value={entry.content} 
+                                                    onChange={(e) => setDiaryEntries(diaryEntries.map(ent => ent.id === entry.id ? {...ent, content: e.target.value} : ent))}
+                                                    className="w-full bg-transparent border-none text-[12px] text-zinc-300 italic resize-none h-auto outline-none"
+                                                />
                                             </div>
                                         ))}
                                     </div>
@@ -457,10 +490,10 @@
                                     </div>
                                 </div>
 
-                                {/* MOTIVATION Management */}
+                                {/* Motivation Management */}
                                 <div className="space-y-4 px-1">
                                     <div className="flex justify-between items-center px-1">
-                                        <h3 className="text-[10px] font-black uppercase text-zinc-600 tracking-widest">Motivation</h3>
+                                        <h3 className="text-[10px] font-black uppercase text-zinc-600 tracking-widest px-2">Motivation</h3>
                                         <div className="flex gap-2">
                                             <button onClick={() => setPsyItems([{id:Date.now(), type:'mindset', text:'Frase...', author:'CEO'}, ...psyItems])} className="p-2 bg-[#00d15b]/20 rounded-lg border border-[#00d15b]/30 text-[#00d15b]"><Icons.Plus /></button>
                                             <button onClick={() => setPsyItems([{id:Date.now(), type:'fear', text:'Miedo...', author:'REALITY'}, ...psyItems])} className="p-2 bg-red-600/20 rounded-lg border border-red-600/30 text-red-500"><Icons.Plus /></button>
